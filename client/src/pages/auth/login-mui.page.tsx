@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import { Box, CssBaseline, Stack, ThemeProvider } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth.store';
 import { materialLoginTheme } from '@/theme/material-login.theme';
 import { ClassFlowOverviewPanel } from './components/classflow-overview-panel';
@@ -8,7 +9,15 @@ import { MaterialLoginFormCard } from './components/material-login-form-card';
 export function MaterialLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, loginWithGoogle, isLoading, error, clearError } = useAuthStore();
+  const { login, loginWithGoogle, isLoading, error, clearError, isAuthenticated } = useAuthStore();
+  const navigate = useNavigate();
+
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   const isSubmitDisabled = useMemo(
     () => isLoading || !email.trim() || !password.trim(),

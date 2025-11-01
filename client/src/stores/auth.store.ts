@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import { msalInstance, loginRequest } from '@/config/msal.config';
+import type { AccountInfo, AuthenticationResult } from '@azure/msal-browser';
 
 interface User {
   id: string;
@@ -21,7 +23,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithMicrosoft: () => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -81,24 +83,44 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null });
           
           try {
-            // TODO: Implement Google OAuth flow
-            // Placeholder for Google Sign-In integration
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+            // Initialize MSAL if not already initialized
+            await msalInstance.initialize();
             
-            const mockUser: User = {
-              id: 'google-123',
-              email: 'user@gmail.com',
-              name: 'Google User',
-              avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=google',
+            // Trigger login popup with Azure Entra ID External tenant
+            // This will show the user flow which includes Google as an identity provider
+            const response: AuthenticationResult = await msalInstance.loginPopup({
+              ...loginRequest,
+              // The user flow will present Google as an option
+              // Users can choose to sign in with Google or other configured providers
+            });
+            
+            const account: AccountInfo | null = response.account;
+            
+            if (!account) {
+              throw new Error('No account information received');
+            }
+            
+            // Extract user information from the account
+            const user: User = {
+              id: account.homeAccountId,
+              email: account.username,
+              name: account.name || account.username.split('@')[0],
+              avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${account.username}`,
             };
             
             set({
-              user: mockUser,
+              user,
               isAuthenticated: true,
               isLoading: false,
               error: null,
             });
           } catch (error) {
+            // Handle user cancellation gracefully
+            if (error instanceof Error && error.message.includes('user_cancelled')) {
+              set({ isLoading: false, error: null });
+              return;
+            }
+            
             set({
               error: error instanceof Error ? error.message : 'Google login failed',
               isLoading: false,
@@ -110,24 +132,39 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null });
           
           try {
-            // TODO: Implement MSAL authentication
-            // Placeholder for Microsoft/Azure AD integration
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+            // Initialize MSAL if not already initialized
+            await msalInstance.initialize();
             
-            const mockUser: User = {
-              id: 'microsoft-123',
-              email: 'user@microsoft.com',
-              name: 'Microsoft User',
-              avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=microsoft',
+            // Trigger login popup with Azure Entra ID External tenant
+            const response: AuthenticationResult = await msalInstance.loginPopup(loginRequest);
+            
+            const account: AccountInfo | null = response.account;
+            
+            if (!account) {
+              throw new Error('No account information received');
+            }
+            
+            // Extract user information from the account
+            const user: User = {
+              id: account.homeAccountId,
+              email: account.username,
+              name: account.name || account.username.split('@')[0],
+              avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${account.username}`,
             };
             
             set({
-              user: mockUser,
+              user,
               isAuthenticated: true,
               isLoading: false,
               error: null,
             });
           } catch (error) {
+            // Handle user cancellation gracefully
+            if (error instanceof Error && error.message.includes('user_cancelled')) {
+              set({ isLoading: false, error: null });
+              return;
+            }
+            
             set({
               error: error instanceof Error ? error.message : 'Microsoft login failed',
               isLoading: false,
@@ -135,12 +172,33 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        logout: () =>
-          set({
-            user: null,
-            isAuthenticated: false,
-            error: null,
-          }),
+        logout: async () => {
+          try {
+            await msalInstance.initialize();
+            const account = msalInstance.getAllAccounts()[0];
+            
+            if (account) {
+              await msalInstance.logoutPopup({
+                account,
+                postLogoutRedirectUri: import.meta.env.VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI || 'http://localhost:5173',
+              });
+            }
+            
+            set({
+              user: null,
+              isAuthenticated: false,
+              error: null,
+            });
+          } catch (error) {
+            console.error('Logout error:', error);
+            // Still clear local state even if logout fails
+            set({
+              user: null,
+              isAuthenticated: false,
+              error: null,
+            });
+          }
+        },
       }),
       {
         name: 'auth-storage',
