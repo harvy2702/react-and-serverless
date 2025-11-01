@@ -3,17 +3,22 @@ import type { Configuration } from '@azure/msal-browser';
 
 /**
  * Configuration object to be passed to MSAL instance on creation.
+ * For External tenant with user flows, use the authority format:
+ * https://{tenant-name}.ciamlogin.com/{tenant-name}.onmicrosoft.com/
+ * 
  * For a full list of MSAL.js configuration parameters, visit:
  * https://github.com/AzureAD/microsoft-authentication-library-for-js/blob/dev/lib/msal-browser/docs/configuration.md
  */
 
-// TODO: Replace these values with your actual Azure AD configuration
+const tenantName = import.meta.env.VITE_AZURE_TENANT_NAME || 'Classflow';
+
 export const msalConfig: Configuration = {
   auth: {
-    clientId: import.meta.env.VITE_AZURE_AD_CLIENT_ID || 'YOUR_CLIENT_ID_HERE', // Application (client) ID
-    authority: import.meta.env.VITE_AZURE_AD_AUTHORITY || 'https://login.microsoftonline.com/YOUR_TENANT_ID_HERE', // Directory (tenant) ID
+    clientId: import.meta.env.VITE_AZURE_AD_CLIENT_ID || '51dea61c-db2d-492a-bcd6-17130e349dd1', // Application (client) ID
+    authority: `https://${tenantName}.ciamlogin.com/${tenantName}.onmicrosoft.com`, // External tenant authority
     redirectUri: import.meta.env.VITE_AZURE_AD_REDIRECT_URI || 'http://localhost:5173', // Must be registered as a redirect URI
     postLogoutRedirectUri: import.meta.env.VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI || 'http://localhost:5173', // Redirect after logout
+    knownAuthorities: [`${tenantName}.ciamlogin.com`], // Required for external tenants
   },
   cache: {
     cacheLocation: 'localStorage', // This configures where your cache will be stored
@@ -45,8 +50,11 @@ export const msalConfig: Configuration = {
 };
 
 // Add scopes here for ID token to be used at Microsoft identity platform endpoints.
+// For External tenants, use openid, offline_access, and profile scopes
 export const loginRequest = {
-  scopes: ['User.Read', 'openid', 'profile', 'email'],
+  scopes: ['openid', 'offline_access', 'profile', 'email'],
+  // Prompt user to select account (useful for Google login)
+  prompt: 'select_account',
 };
 
 // Add the endpoints here for Microsoft Graph API services you'd like to use.
