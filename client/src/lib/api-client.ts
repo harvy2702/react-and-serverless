@@ -90,7 +90,7 @@ apiClient.interceptors.response.use(
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         window.location.href = '/login-classic';
-        return Promise.reject(refreshError);
+        throw refreshError;
       }
     }
 
@@ -106,11 +106,12 @@ apiClient.interceptors.response.use(
     // You can add custom error handling here
     // For example, show toast notifications
 
-    return Promise.reject({
+    const apiError = new Error(errorMessage);
+    Object.assign(apiError, {
       status: error.response?.status,
-      message: errorMessage,
       data: error.response?.data,
     });
+    throw apiError;
   }
 );
 

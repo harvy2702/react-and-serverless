@@ -1,0 +1,8 @@
+{
+  "name": "react-and-serverless",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "sonar": "sonar-scanner"
+  }
+}

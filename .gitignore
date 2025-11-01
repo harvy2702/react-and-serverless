@@ -52,6 +52,9 @@ __azurite_db*__.json
 # Serverless
 .serverless/
 
+# SonarQube
+.scannerwork/
+
 # Misc
 *.local
 .cache/
