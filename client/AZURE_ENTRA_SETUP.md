@@ -15,17 +15,30 @@ This document provides complete setup instructions for implementing Google login
 ### 1. App Registration Created ✓
 - **App Name**: Classflow React App
 - **Client ID**: `51dea61c-db2d-492a-bcd6-17130e349dd1`
-- **Sign-in audience**: Azure AD and personal Microsoft accounts
-- **Redirect URIs**: 
+- **Sign-in audience**: AzureADMyOrg (External tenant users)
+- **Platform**: Single-Page Application (SPA)
+- **Redirect URIs (SPA platform)**: 
   - `http://localhost:5173`
   - `http://localhost:5173/auth/callback`
 - **ID Token**: Enabled
+- **Service Principal**: Created in Classflow tenant
 
 ### 2. Code Implementation ✓
 - MSAL configuration updated for External tenant
 - Auth store updated with MSAL integration
 - Login component configured for Google login
 - Environment variables configured
+
+## 🌐 Google Cloud Console Configuration
+
+### Required Redirect URI
+In your Google Cloud Console OAuth 2.0 Client, add this redirect URI:
+
+```
+https://classflow.ciamlogin.com/9444a5ee-3305-4a66-86d3-792619de731e/federation/oauth2
+```
+
+**Note**: External tenants use `ciamlogin.com` domain, not `login.microsoftonline.com`.
 
 ## 🔧 Required Manual Step
 
@@ -52,16 +65,20 @@ After completing the above steps, you should see "Classflow React App" listed un
 # Azure Entra ID External Tenant Configuration
 VITE_AZURE_AD_CLIENT_ID=51dea61c-db2d-492a-bcd6-17130e349dd1
 VITE_AZURE_TENANT_NAME=Classflow
-VITE_AZURE_USER_FLOW=signUpOrSignInWithGoogle
 VITE_AZURE_AD_REDIRECT_URI=http://localhost:5173
 VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI=http://localhost:5173
+
+# Note: User flow is linked in Azure Portal, not in authority URL
 ```
 
 ### MSAL Configuration
-The MSAL configuration has been updated to use the External tenant authority format:
+The MSAL configuration uses the External tenant authority (without user flow in URL):
 ```typescript
-authority: `https://Classflow.ciamlogin.com/Classflow.onmicrosoft.com/signUpOrSignInWithGoogle`
+authority: `https://Classflow.ciamlogin.com/Classflow.onmicrosoft.com`
+knownAuthorities: [`Classflow.ciamlogin.com`]
 ```
+
+**Important**: The user flow is associated via the Azure Portal app linking, not in the authority URL.
 
 ## 🔐 Authentication Flow
 

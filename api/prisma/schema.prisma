@@ -1,0 +1,56 @@
+// Prisma schema for Azure SQL Database
+// Introspected from existing database schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id         String   @id @default(uuid()) @db.UniqueIdentifier
+  email      String   @unique @db.NVarChar(255)
+  name       String?  @db.NVarChar(255)
+  created_at DateTime @default(now()) @db.DateTimeOffset
+  updated_at DateTime @updatedAt @db.DateTimeOffset
+
+  // Relations
+  ownedClasses  Class[]       @relation("ClassOwner")
+  classMemberships ClassMember[]
+
+  @@map("profiles")
+}
+
+model Class {
+  id          String   @id @default(uuid()) @db.UniqueIdentifier
+  name        String   @db.NVarChar(255)
+  description String?  @db.NVarChar(Max)
+  owner_id    String   @db.UniqueIdentifier
+  invite_code String?  @db.NVarChar(50)
+  created_at  DateTime @default(now()) @db.DateTimeOffset
+  updated_at  DateTime @updatedAt @db.DateTimeOffset
+
+  // Relations
+  owner   Profile       @relation("ClassOwner", fields: [owner_id], references: [id])
+  members ClassMember[]
+
+  @@map("classes")
+}
+
+model ClassMember {
+  class_id   String   @db.UniqueIdentifier
+  user_id    String   @db.UniqueIdentifier
+  role       String   @db.NVarChar(50) // 'teacher' or 'student'
+  joined_at  DateTime @default(now()) @db.DateTimeOffset
+  invited_by String?  @db.UniqueIdentifier
+
+  // Relations
+  class Class   @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user  Profile @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([class_id, user_id])
+  @@map("class_members")
+}

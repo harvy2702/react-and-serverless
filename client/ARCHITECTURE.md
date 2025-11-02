@@ -45,42 +45,63 @@
 App (QueryClientProvider + BrowserRouter)
 │
 ├── Routes
-│   ├── /login → LoginPage
-│   │   └── Card
-│   │       ├── CardHeader (Title + Description)
-│   │       ├── CardContent
-│   │       │   ├── Login Form
-│   │       │   │   ├── Input (Email)
-│   │       │   │   ├── Input (Password)
-│   │       │   │   └── Button (Sign In)
-│   │       │   └── Button (Google Login)
-│   │       └── CardFooter
+│   ├── /login → MaterialLoginPage (Material UI)
+│   │   └── ThemeProvider (materialLoginTheme)
+│   │       └── Box (Full-height container)
+│   │           └── Stack (Responsive layout)
+│   │               ├── ClassFlowOverviewPanel (Left side)
+│   │               │   └── Brand info + Features
+│   │               │
+│   │               └── MaterialLoginFormCard (Right side)
+│   │                   ├── Email Input (MUI TextField)
+│   │                   ├── Password Input (MUI TextField)
+│   │                   ├── Sign In Button (MUI Button)
+│   │                   ├── Divider
+│   │                   └── Google Sign In Button (MUI Button)
 │   │
-│   ├── /dashboard → DashboardPage (Protected)
-│   │   └── User Dashboard Content
+│   ├── / → HomePage (Protected, Tailwind CSS)
+│   │   └── User Profile Display
+│   │       ├── Avatar
+│   │       ├── Welcome Message
+│   │       ├── User Name & Email
+│   │       └── Sign Out Button
 │   │
-│   └── / → Redirect to Dashboard
+│   └── /* → Redirect to /
 │
 └── ReactQueryDevtools (Development only)
 ```
 
 ## 🔄 Data Flow
 
-### Authentication Flow
+### Authentication Flow (Google Login via Azure Entra ID)
 ```
-1. User enters credentials in LoginPage
+1. User clicks "Sign in with Google" in MaterialLoginPage
    ↓
-2. LoginPage calls useAuthStore.login()
+2. LoginPage calls useAuthStore.loginWithGoogle()
    ↓
-3. Auth Store updates loading state
+3. Auth Store initializes MSAL and opens popup
    ↓
-4. API call via Axios (placeholder)
+4. MSAL redirects to Azure Entra ID user flow
    ↓
-5. Store updates with user data
+5. User flow displays Google login option
    ↓
-6. Route guard redirects to Dashboard
+6. User authenticates with Google
    ↓
-7. Protected content loads
+7. Azure Entra ID creates/updates user account
+   ↓
+8. Azure returns token to MSAL
+   ↓
+9. MSAL closes popup and returns account info
+   ↓
+10. Auth Store updates with user data
+   ↓
+11. useEffect detects isAuthenticated = true
+   ↓
+12. Navigate to HomePage (/)
+   ↓
+13. Protected route allows access
+   ↓
+14. HomePage displays user profile
 ```
 
 ### API Request Flow
@@ -108,28 +129,35 @@ TanStack Query Cache
 Component Re-render
 ```
 
-## 🎨 Styling Architecture
+## 🎨 Styling Architecture (Hybrid Approach)
 
 ```
-┌──────────────────────────────────────────────────┐
-│              Tailwind CSS (Utility-First)         │
-│                                                   │
-│  • Base Styles (index.css)                       │
-│  • CSS Variables for theming                     │
-│  • Dark mode support                             │
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                  Styling Strategy                             │
+└──────────────────────────────────────────────────────────────┘
                          │
         ┌────────────────┼────────────────┐
-        │                │                │
-┌───────▼─────┐  ┌──────▼──────┐  ┌─────▼──────┐
-│   Shadcn/ui │  │  Custom CSS │  │   Inline   │
-│  Components │  │  (minimal)  │  │  Classes   │
-│             │  │             │  │            │
-│ • Button    │  │ • Gradients │  │ className= │
-│ • Input     │  │ • Animations│  │  "..."     │
-│ • Card      │  │             │  │            │
-│ • Label     │  │             │  │            │
-└─────────────┘  └─────────────┘  └────────────┘
+        │                                 │
+┌───────▼────────────┐         ┌─────────▼──────────┐
+│   Material UI (MUI)│         │  Tailwind CSS v4   │
+│                    │         │                    │
+│ Used for:          │         │ Used for:          │
+│ • Login pages      │         │ • Home page        │
+│ • Auth UI          │         │ • Utility classes  │
+│ • Form components  │         │ • Layout           │
+│ • Material theme   │         │ • Gradients        │
+│                    │         │ • Responsive       │
+│ Components:        │         │                    │
+│ • TextField        │         │ Shadcn/ui:         │
+│ • Button           │         │ • Label            │
+│ • Box, Stack       │         │ • Other utilities  │
+│ • ThemeProvider    │         │                    │
+└────────────────────┘         └────────────────────┘
+
+Why hybrid?
+• MUI provides polished, accessible auth components
+• Tailwind offers flexibility for custom pages
+• Each tool used where it excels
 ```
 
 ## 📦 State Management Strategy
@@ -151,29 +179,39 @@ Component Re-render
 ```
 ┌──────────────────────────────────────────────────┐
 │  1. Route Protection (React Router Guards)        │
-│     • Check isAuthenticated                      │
-│     • Redirect unauthenticated users             │
+│     • ProtectedRoute component                   │
+│     • Check isAuthenticated from Zustand         │
+│     • Redirect to /login if not authenticated    │
 └──────────────────────────────────────────────────┘
                          │
 ┌──────────────────────────────────────────────────┐
-│  2. Token Management (Axios Interceptors)         │
-│     • Inject Bearer token in requests            │
+│  2. MSAL Browser (SPA Authentication)             │
+│     • Popup-based OAuth flow                     │
+│     • PKCE (Proof Key for Code Exchange)         │
+│     • Automatic token caching in localStorage    │
+│     • Silent token refresh                       │
+└──────────────────────────────────────────────────┘
+                         │
+┌──────────────────────────────────────────────────┐
+│  3. Azure Entra ID External Tenant                │
+│     • User flow: signUpOrSignInWithGoogle        │
+│     • Google as identity provider                │
+│     • OAuth 2.0 / OpenID Connect                 │
+│     • User account management                    │
+└──────────────────────────────────────────────────┘
+                         │
+┌──────────────────────────────────────────────────┐
+│  4. Google OAuth                                  │
+│     • Secure redirect URI validation             │
+│     • Google Cloud Console configuration         │
+│     • User consent screen                        │
+└──────────────────────────────────────────────────┘
+                         │
+┌──────────────────────────────────────────────────┐
+│  5. Token Management (Future - Axios)             │
+│     • Inject Bearer token in API requests        │
 │     • Auto-refresh on 401 errors                 │
 │     • Clear tokens on logout                     │
-└──────────────────────────────────────────────────┘
-                         │
-┌──────────────────────────────────────────────────┐
-│  3. Azure AD Authentication (MSAL)                │
-│     • OAuth 2.0 / OpenID Connect                 │
-│     • SSO support                                │
-│     • MFA enabled                                │
-└──────────────────────────────────────────────────┘
-                         │
-┌──────────────────────────────────────────────────┐
-│  4. API Gateway (Azure Functions)                 │
-│     • Request validation                         │
-│     • Rate limiting                              │
-│     • CORS configuration                         │
 └──────────────────────────────────────────────────┘
 ```
 

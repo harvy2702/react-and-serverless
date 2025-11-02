@@ -3,6 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "sonar": "sonar-scanner"
+    "sonar": "sonar-scanner",
+    "dev:client": "cd client && npm run dev",
+    "dev:api": "cd api && npm start",
+    "build:client": "cd client && npm run build",
+    "build:api": "cd api && npm run build",
+    "deploy:api": "cd api && ./deploy.sh"
   }
 }
